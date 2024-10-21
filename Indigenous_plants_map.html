@@ -216,12 +216,12 @@
   </style>
   
     <nav id="menu"></nav>
-    <button id="survey-button" onclick="window.open('https://lizmccleary.github.io/form-website/community_entry_form.html', '_blank')">Community Harvest Form</button>
+    <button id="survey-button" onclick="window.open('http://127.0.0.1:5000', '_blank')">Community Harvest Form</button>
     <div id="map"></div>
 
     <div id="popup_title" class="popup_title">
         <span class="close" onclick="togglePopup()">&times;</span>
-        <img id="popup_title img" src="popup-aug1.png" alt="Popup Image"> 
+        <img id="popup_titleImg" src="popup-july18.png" alt="Popup Image"> 
     </div>
 
     <div id="map-overlay" class="map-overlay"></div>
@@ -582,7 +582,61 @@
     map.on('load', fetchTrafficData);
       
     });   
-      
+/// Fetch responses from responses.geojson and update automatically every time a new submission is made
+function updateGeoJsonLayer() {
+    fetch('http://127.0.0.1:5000/responses.geojson') // Fetch from the correct file 'responses.geojson'
+        .then(response => response.json())
+        .then(data => {
+            if (map.getSource('responses-data')) {
+                map.getSource('responses-data').setData(data); // Update the existing source with new data
+            } else {
+                map.addSource('responses-data', {
+                    type: 'geojson',
+                    data: data
+                });
+
+                // Add a layer for point features
+                map.addLayer({
+                    id: 'responses-point',
+                    type: 'circle',
+                    source: 'responses-data',
+                    filter: ['==', '$type', 'Point'], // Filter to show only point features
+                    paint: {
+                        'circle-radius': 5,
+                        'circle-color': '#FF0000'
+                    }
+                });
+
+                // Add a layer for polygon features
+                map.addLayer({
+                    id: 'responses-polygon',
+                    type: 'fill',
+                    source: 'responses-data',
+                    filter: ['==', '$type', 'Polygon'], // Filter to show only polygon features
+                    paint: {
+                        'fill-color': '#0080FF',
+                        'fill-opacity': 0.5
+                    }
+                });
+            }
+        })
+        .catch(error => console.error('Error updating GeoJSON data:', error));
+}
+
+// Event listener for the Community Harvest Form button
+document.getElementById('survey-button').addEventListener('click', function() {
+    // Open the community harvest form in a new tab
+    window.open('http://127.0.0.1:5000', '_blank');
+
+    // Optionally, set a delay to allow time for form submission processing before updating the map
+    setTimeout(updateGeoJsonLayer, 5000); // Adjust the delay as needed
+});
+
+// Poll the GeoJSON file every 30 seconds to update the map layer with new submissions
+setInterval(updateGeoJsonLayer, 30000); // 30000 milliseconds = 30 seconds
+
+
+
 // After the last frame rendered before the map enters an "idle" state.
     map.on('idle', () => {
         // If these three layers were not added to the map, abort
@@ -684,6 +738,49 @@
                 map.getCanvas().style.cursor = '';
             });
 
+/// Add a popup for community responses point layer ////
+            map.on('click', 'responses-point', (e) => {
+                const coordinates = e.lngLat;
+                const properties = e.features[0].properties;
+
+                new mapboxgl.Popup()
+                    .setLngLat(coordinates)
+                    .setHTML(`<strong>Name:</strong> ${properties.name}<br><<strong>Time:</strong> ${properties['observation-time']}<br>strong>Description:</strong> ${properties.description}<br><strong>Notes:</strong> ${properties.notes}`)
+                    .addTo(map);
+            });
+
+            // Change the cursor to a pointer when the mouse is over the responses-point layer
+            map.on('mouseenter', 'responses-point', () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+
+            // Change it back to a pointer when it leaves
+            map.on('mouseleave', 'responses-point', () => {
+                map.getCanvas().style.cursor = '';
+            });
+      
+
+      /// Add a popup for community responses polygon layer ////
+            map.on('click', 'responses-polygon', (e) => {
+                const coordinates = e.lngLat;
+                const properties = e.features[0].properties;
+
+                new mapboxgl.Popup()
+                    .setLngLat(coordinates)
+                    .setHTML(`<strong>Name:</strong> ${properties.name}<br><<strong>Time:</strong> ${properties['observation-time']}<br>strong>Description:</strong> ${properties.description}<br><strong>Notes:</strong> ${properties.notes}`)
+                    .addTo(map);
+            });
+
+            // Change the cursor to a pointer when the mouse is over the responses-polygon layer
+            map.on('mouseenter', 'responses-polygon', () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+
+            // Change it back to a pointer when it leaves
+            map.on('mouseleave', 'responses-polygon', () => {
+                map.getCanvas().style.cursor = '';
+            });
+      
     </script>
         
 </body>
